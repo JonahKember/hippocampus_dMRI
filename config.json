@@ -1,0 +1,28 @@
+{
+    "subject":"HCD0001305",
+
+    "hipp_surfaces__desc":"Path to GIFTI surface file (.surf.gii) of the hippocampus midthickness.",
+    "hipp_midthickness_L":"data/sub-HCD0001305_hemi-L_space-T1w_den-0p5mm_label-hipp_midthickness.surf.gii",
+    "hipp_midthickness_R":"data/sub-HCD0001305_hemi-R_space-T1w_den-0p5mm_label-hipp_midthickness.surf.gii",
+    "hipp_inner_L":"data/sub-HCD0001305_hemi-L_space-T1w_den-0p5mm_label-hipp_inner.surf.gii",
+    "hipp_inner_R":"data/sub-HCD0001305_hemi-R_space-T1w_den-0p5mm_label-hipp_inner.surf.gii",
+    "hipp_outer_L":"data/sub-HCD0001305_hemi-L_space-T1w_den-0p5mm_label-hipp_outer.surf.gii",
+    "hipp_outer_R":"data/sub-HCD0001305_hemi-R_space-T1w_den-0p5mm_label-hipp_outer.surf.gii",
+
+
+
+    "hipp_crop_T1__desc":"Path to NIFTI image containing the 'cropT1w' HippUnfold space.",
+    "hipp_crop_T1_L":"data/sub-HCD0001305_hemi-L_space-cropT1w_desc-preproc_T1w.nii.gz",
+    "hipp_crop_T1_R":"data/sub-HCD0001305_hemi-R_space-cropT1w_desc-preproc_T1w.nii.gz",
+
+
+    "B0_to_T1__desc":"Path to affine matrix (.txt) transforming image from T1 to B0 space.",
+    "B0_to_T1":"data/b0_to_T1.txt",
+
+
+    "dwi__desc":"Paths to diffusion-weighted NIFTI image and associated bvals/bvecs.",
+    "dwi":"data/sub-HCD0001305_dwi.nii.gz",
+    "bvals":"data/bvals",
+    "bvecs":"data/bvecs"
+
+}
