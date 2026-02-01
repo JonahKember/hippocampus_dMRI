@@ -113,6 +113,35 @@ def fit_directional_kurtosis(config, sphere_name='symmetric362'):
         nib.save(kurtosis_nii, kurtosis_path_nii)
 
 
+def fit_mean_kurtosis(config):
+
+    subject = config['subject']
+
+    for hemi in ['L','R']:
+
+        params_nii = nib.load(f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_params.nii.gz')
+        params = params_nii.get_fdata()
+
+        # Flatten voxels, calculate directional kurtosis, reshape.
+        X, Y, Z, P = params.shape
+
+        params_flat   = params.reshape(-1, P)
+        kurtosis_flat = dki.mean_kurtosis(params_flat)
+        mean_kurtosis  = kurtosis_flat.reshape(X, Y, Z)
+
+        # Write directional kurtosis to numpy and NIFTI.
+        kurtosis_path_npy = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-kurtosis_mean.npy'
+        kurtosis_path_nii = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-kurtosis_mean.nii.gz'
+
+        np.save(kurtosis_path_npy, mean_kurtosis)
+
+        kurtosis_nii = nib.Nifti1Image(
+            mean_kurtosis,
+            affine=params_nii.affine,
+            header=params_nii.header
+        )
+        nib.save(kurtosis_nii, kurtosis_path_nii)
+
 
 
 def fit_directional_diffusion(config, sphere_name='symmetric362'):
