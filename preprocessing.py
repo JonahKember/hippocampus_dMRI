@@ -2,6 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import nibabel as nib
+
+from dipy.data import get_sphere
 from nibabel.affines import apply_affine
 
 
@@ -38,7 +40,10 @@ def create_B0_surface(config):
             surf_faces_arr  = nib.gifti.GiftiDataArray(surf_faces, intent=faces_intent)
             surf_coords_arr = nib.gifti.GiftiDataArray(surf_coords_B0, intent=coords_intent)
 
-            surf_gii = nib.gifti.GiftiImage(darrays=[surf_faces_arr, surf_coords_arr])
+            if hemi == 'L': meta = nib.gifti.GiftiMetaData({'AnatomicalStructurePrimary':'HippocampusLeft'})
+            if hemi == 'R': meta = nib.gifti.GiftiMetaData({'AnatomicalStructurePrimary':'HippocampusRight'})
+
+            surf_gii = nib.gifti.GiftiImage(darrays=[surf_faces_arr, surf_coords_arr], meta=meta)
 
             nib.save(surf_gii, f'output/sub-{subject}_hemi-{hemi}_space-B0_den-0p5mm_label-hipp_{surf_type}.surf.gii')
 
@@ -106,3 +111,59 @@ def create_surface_normals(config):
 
             normals_df.to_csv(normals_path, index=False)
 
+
+
+def create_surface_to_sphere_angles(config, sphere_name='symmetric362'):
+
+    subject = config['subject']
+
+    # Get directions of sphere.
+    sphere = get_sphere(name=sphere_name)
+    theta = sphere.theta
+    phi = sphere.phi
+
+    x = np.sin(theta) * np.cos(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(theta)
+    sphere_dirs = np.stack([x, y, z], axis=1)
+
+
+    for hemi in ['L','R']:
+
+        # Get directions of surface-normals.
+        surf_normals_df = pd.read_csv(f'output/sub-{subject}_hemi-{hemi}_space-B0_label-inner_desc-surface_normals.csv')
+        surf_normals = surf_normals_df[['x','y','z']].to_numpy()
+
+        # Calculate difference in angle between sphere-directions and surface-normals.
+        angle_diffs = np.zeros([len(sphere_dirs), len(surf_normals)])
+
+        for sphere_idx, sphere_dir in enumerate(sphere_dirs):
+            for normal_idx, normal_dir in enumerate(surf_normals):
+
+                cos_theta = np.clip(np.dot(sphere_dir, normal_dir), -1, 1)
+                angle_diffs[sphere_idx, normal_idx] = np.arccos(cos_theta) * 180/np.pi
+
+        np.save(f'output/sub-{subject}_hemi-{hemi}_label-inner_desc-surface_normal_direction.npy', angle_diffs)
+
+
+        # Group sphere-directions into: normal, tangential, or oblique based on angle to surface-normal.
+        n_vertices = len(surf_normals)
+
+        vertex_direction = []
+        for vertex in range(n_vertices):
+
+            dir_group = np.zeros(len(sphere_dirs), dtype='<U10')
+
+            normal     = (angle_diffs[:,vertex] <= 30) | (angle_diffs[:,vertex] >= 150)
+            tangential = (angle_diffs[:,vertex] >= 60) & (angle_diffs[:,vertex] <= 120)
+            oblique    = (normal == False) & (tangential == False)
+
+            dir_group[normal]     = 'normal'
+            dir_group[tangential] = 'tangential'
+            dir_group[oblique]    = 'oblique'
+
+            vertex_direction.append(dir_group)
+
+        vertex_direction = np.array(vertex_direction)
+
+        np.save(f'output/sub-{subject}_hemi-{hemi}_label-inner_desc-surface_normal_group.npy', vertex_direction)
