@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import nibabel as nib
 from nibabel.affines import apply_affine
 
@@ -43,70 +44,65 @@ def create_B0_surface(config):
 
 
 
-def get_DKT_params(config):
-    '''Crop and upsample the diffusion-weighted imagesm then fit DKT and DTI and collect parameters.'''
+def _vertex_normals(vertices, faces):
+
+    # Get vectors.
+    v0 = vertices[faces[:, 0]]
+    v1 = vertices[faces[:, 1]]
+    v2 = vertices[faces[:, 2]]
+
+    # Get normals of face (cross product).
+    fn = np.cross(v1 - v0, v2 - v0)
+    fn = fn / np.linalg.norm(fn, axis=1, keepdims=True)
+
+    # Vertex normals: sum face normals of adjacent faces.
+    N = vertices.shape[0]
+    vn = np.zeros((N, 3), dtype=np.float64)
+
+    for i in range(3):
+        np.add.at(vn, faces[:, i], fn)
+
+    normals = vn / np.linalg.norm(vn, axis=1, keepdims=True)
+
+    return normals
+
+
+def _cartesian_to_spherical(vectors):
+
+    x = vectors[:, 0]
+    y = vectors[:, 1]
+    z = vectors[:, 2]
+
+    phi   = np.arctan2(y, x)
+    theta = np.arccos(np.clip(z, -1, 1))
+
+    return theta, phi
+
+
+def get_surface_normals(config):
 
     subject    = config['subject']
-    dwi_path   = config['dwi']
-    bvecs      = config['bvecs']
-    bvals      = config['bvals']
-    B0_to_T1   = config['B0_to_T1']
 
-    for hemi in ['L','R']:
+    for surface_type in ['midthickness','inner','outer']:
+        for hemi in ['L','R']:
 
-        # Define paths.
-        crop_B0         = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-preproc_T1w.nii.gz'
-        crop_dwi_path   = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-upsampled_dwi.nii.gz'
+            surf_path    = f'output/sub-{subject}_hemi-{hemi}_space-B0_den-0p5mm_label-hipp_{surface_type}.surf.gii'
+            normals_path = f'output/sub-{subject}_hemi-{hemi}_space-B0_label-{surface_type}_desc-surface_normals.csv'
 
-        dt_path         = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_tensor.nii.gz'
-        dkt_path        = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_tensor.nii.gz'
+            surf = nib.load(surf_path)
+            faces    = surf.darrays[0].data
+            vertices = surf.darrays[1].data
 
-        adc_path        = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_ADC.nii.gz'
-        fa_path         = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_FA.nii.gz'
-        eigenval_path   = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_eigenvals.nii.gz'
-        eigenvec_path   = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_eigenvecs.nii.gz'
+            normals    = _vertex_normals(vertices, faces)
+            theta, phi = _cartesian_to_spherical(normals)
 
-        dkt_params_path = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_params.nii.gz'
+            normals_df = pd.DataFrame({
+                'x':normals[:,0],
+                'y':normals[:,1],
+                'z':normals[:,2],
+                'theta':theta,
+                'phi':phi
+            })
 
+            normals_df.to_csv(normals_path, index=False)
 
-        # Transform cropped T1 to B0 space.
-        crop_T1 = config[f'hipp_crop_T1_{hemi}']
-        os.system(f'mrtransform {crop_T1} {crop_B0} -linear {B0_to_T1} -force')
-
-        # Crop and upsample the diffusion weighted images to 0.5mm resolution.
-        os.system(f'mrgrid {dwi_path} regrid -voxel 0.5 -template {crop_B0} {crop_dwi_path} -force')
-
-        # Fit diffusion-tensor and diffusion-kurtosis-tensor on cropped/upsampled DWI image.
-        os.system(f'dwi2tensor {crop_dwi_path} {dt_path} -dkt {dkt_path} -fslgrad {bvecs} {bvals} -force')
-
-        # Get diffusion-tensor metrics.
-        os.system(f'tensor2metric \
-            -fa    {fa_path} \
-            -adc   {adc_path} \
-            -value {eigenval_path} \
-            -vector {eigenvec_path} -num 1,2,3 -modulate none \
-            {dt_path} \
-            -force'
-        )
-
-        # Merge all DKT params expected by DIPY.
-        dt_eigenvals = nib.load(eigenval_path).get_fdata()
-        dt_eigenvecs = nib.load(eigenvec_path).get_fdata()
-        dkt_params = nib.load(dkt_path).get_fdata()
-
-        params = np.concatenate([
-            dt_eigenvals,
-            dt_eigenvecs,
-            dkt_params
-            ], axis=-1
-        )
-
-        # Write DKT parameters to 4D NIFTI.
-        template_nii = nib.load(crop_dwi_path)
-        params_nii = nib.Nifti1Image(
-            params,
-            affine=template_nii.affine,
-            header=template_nii.header
-        )
-
-        nib.save(params_nii, dkt_params_path)

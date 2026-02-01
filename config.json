@@ -10,15 +10,20 @@
     "hipp_outer_R":"data/sub-HCD0001305_hemi-R_space-T1w_den-0p5mm_label-hipp_outer.surf.gii",
 
 
-
     "hipp_crop_T1__desc":"Path to NIFTI image containing the 'cropT1w' HippUnfold space.",
     "hipp_crop_T1_L":"data/sub-HCD0001305_hemi-L_space-cropT1w_desc-preproc_T1w.nii.gz",
     "hipp_crop_T1_R":"data/sub-HCD0001305_hemi-R_space-cropT1w_desc-preproc_T1w.nii.gz",
 
 
+    "hipp_volume__desc":"Path to NIFTI image containing the hippocampal volume in cropT1w space.",
+    "hipp_volume_L":"data/sub-HCD0001305_hemi-L_space-cropT1w_desc-subfields_atlas-multihist7_dseg.nii.gz",
+    "hipp_volume_R":"data/sub-HCD0001305_hemi-R_space-cropT1w_desc-subfields_atlas-multihist7_dseg.nii.gz",
+
+
     "B0_to_T1__desc":"Path to affine matrix (.txt) transforming image from T1 to B0 space.",
     "B0_to_T1":"data/b0_to_T1.txt",
 
+    
 
     "dwi__desc":"Paths to diffusion-weighted NIFTI image and associated bvals/bvecs.",
     "dwi":"data/sub-HCD0001305_dwi.nii.gz",
