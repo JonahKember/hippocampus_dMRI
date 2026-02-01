@@ -6,7 +6,7 @@ from dipy.reconst import dki
 from dipy.data import get_sphere
 
 
-def get_DKT_params(config):
+def fit_DKT_params(config):
     '''Crop and upsample the diffusion-weighted imagesm then fit DKT and DTI and collect parameters.'''
 
     subject    = config['subject']
@@ -112,3 +112,62 @@ def fit_directional_kurtosis(config, sphere_name='symmetric362'):
         )
         nib.save(kurtosis_nii, kurtosis_path_nii)
 
+
+
+
+def fit_directional_diffusion(config, sphere_name='symmetric362'):
+
+    subject = config['subject']
+
+    # Get directions of sphere.
+    sphere = get_sphere(name=sphere_name)
+    theta = sphere.theta
+    phi = sphere.phi
+
+    x = np.sin(theta) * np.cos(phi)
+    y = np.sin(theta) * np.sin(phi)
+    z = np.cos(theta)
+    sphere_dirs = np.stack([x, y, z], axis=1)
+    n_dirs = sphere_dirs.shape[0]
+
+    for hemi in ['L','R']:
+
+        # Get diffusion tensor eigenvectors/eigenvalues.
+        eigenvals = nib.load(f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_eigenvals.nii.gz').get_fdata()
+        eigenvecs = nib.load(f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_eigenvecs.nii.gz').get_fdata()
+        n_vox = eigenvals.shape[0]
+
+        vox_diffusion = np.zeros([n_vox, n_vox, n_vox, n_dirs])
+
+        for x in range(n_vox):
+            for y in range(n_vox):
+                for z in range(n_vox):
+
+                    vox_eigenvecs = eigenvecs[x,y,z,:].reshape(3,3)
+                    vox_eigenvals = eigenvals[x,y,z,:]
+
+                    # DIPY order: Dxx, Dxy, Dyy, Dxz, Dyz, Dzz
+                    # https://docs.dipy.org/dev/examples_built/reconstruction/reconst_dti.html
+
+                    D = vox_eigenvecs @ np.diag(vox_eigenvals) @ vox_eigenvecs.T
+                    dt_params = np.array([
+                        D[0,0],
+                        D[0,1],
+                        D[1,1],
+                        D[0,2],
+                        D[1,2],
+                        D[2,2]
+                    ])
+
+                    vox_diffusion[x,y,z,:] = dki.directional_diffusion(dt_params, sphere_dirs)
+
+
+        vox_diffusion_path  = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-diffusion_sphere-{sphere_name}.nii.gz'
+        params_nii = nib.load(f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_params.nii.gz')
+
+        nii = nib.Nifti1Image(
+            vox_diffusion,
+            affine=params_nii.affine,
+            header=params_nii.header
+        )
+        nib.save(nii, vox_diffusion_path)

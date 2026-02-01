@@ -79,9 +79,9 @@ def _cartesian_to_spherical(vectors):
     return theta, phi
 
 
-def get_surface_normals(config):
+def create_surface_normals(config):
 
-    subject    = config['subject']
+    subject = config['subject']
 
     for surface_type in ['midthickness','inner','outer']:
         for hemi in ['L','R']:
