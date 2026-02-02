@@ -48,6 +48,19 @@ def create_B0_surface(config):
             nib.save(surf_gii, f'output/sub-{subject}_hemi-{hemi}_space-B0_den-0p5mm_label-hipp_{surf_type}.surf.gii')
 
 
+def create_mask(config):
+
+    subject = config['subject']
+
+    for hemi in ['L','R']:
+
+        dwi_path       = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-upsampled_dwi.nii.gz'
+        mask_path      = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-mask.nii.gz'
+        subfields_path = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-subfields.nii.gz'
+
+        os.system(f'mrgrid {subfields_path} regrid -template {dwi_path} -interp nearest {mask_path} -force')
+
+
 
 def _vertex_normals(vertices, faces):
 

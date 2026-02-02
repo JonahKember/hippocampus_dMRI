@@ -2,3 +2,7 @@
 data
 output
 __pycache__
+main.ipynb
+testing.ipynb
+tissue_classifier.ipynb
+colume_to_surface_mapping.ipynb

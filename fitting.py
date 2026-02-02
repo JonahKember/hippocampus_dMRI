@@ -27,6 +27,8 @@ def fit_DKT_params(config):
 
         adc_path         = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_ADC.nii.gz'
         fa_path          = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_FA.nii.gz'
+        ad_path          = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_AD.nii.gz'
+        rd_path          = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_RD.nii.gz'
         eigenval_path    = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_eigenvals.nii.gz'
         eigenvec_path    = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DT_eigenvecs.nii.gz'
 
@@ -50,6 +52,8 @@ def fit_DKT_params(config):
         os.system(f'tensor2metric \
             -fa    {fa_path} \
             -adc   {adc_path} \
+            -ad    {ad_path} \
+            -rd    {rd_path} \
             -value {eigenval_path} \
             -vector {eigenvec_path} -num 1,2,3 -modulate none \
             {dt_path} \
@@ -113,7 +117,7 @@ def fit_directional_kurtosis(config, sphere_name='symmetric362'):
         nib.save(kurtosis_nii, kurtosis_path_nii)
 
 
-def fit_mean_kurtosis(config):
+def fit_DKT_metrics(config):
 
     subject = config['subject']
 
@@ -122,25 +126,30 @@ def fit_mean_kurtosis(config):
         params_nii = nib.load(f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_params.nii.gz')
         params = params_nii.get_fdata()
 
-        # Flatten voxels, calculate directional kurtosis, reshape.
-        X, Y, Z, P = params.shape
+        for metric, model_func in zip(
+            ['MK','AK','RK','KFA'],
+            [dki.mean_kurtosis, dki.axial_kurtosis, dki.radial_kurtosis, dki.kurtosis_fractional_anisotropy]
+            ):
 
-        params_flat   = params.reshape(-1, P)
-        kurtosis_flat = dki.mean_kurtosis(params_flat)
-        mean_kurtosis  = kurtosis_flat.reshape(X, Y, Z)
+            # Flatten voxels, calculate directional kurtosis, reshape.
+            X, Y, Z, P = params.shape
 
-        # Write directional kurtosis to numpy and NIFTI.
-        kurtosis_path_npy = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-kurtosis_mean.npy'
-        kurtosis_path_nii = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-kurtosis_mean.nii.gz'
+            params_flat   = params.reshape(-1, P)
+            kurtosis_flat = model_func(params_flat)
+            kurtosis_metric  = kurtosis_flat.reshape(X, Y, Z)
 
-        np.save(kurtosis_path_npy, mean_kurtosis)
+            # Write directional kurtosis to numpy and NIFTI.
+            kurtosis_path_npy = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_{metric}.npy'
+            kurtosis_path_nii = f'output/sub-{subject}_hemi-{hemi}_space-cropB0_desc-DKT_{metric}.nii.gz'
 
-        kurtosis_nii = nib.Nifti1Image(
-            mean_kurtosis,
-            affine=params_nii.affine,
-            header=params_nii.header
-        )
-        nib.save(kurtosis_nii, kurtosis_path_nii)
+            np.save(kurtosis_path_npy, kurtosis_metric)
+
+            kurtosis_nii = nib.Nifti1Image(
+                kurtosis_metric,
+                affine=params_nii.affine,
+                header=params_nii.header
+            )
+            nib.save(kurtosis_nii, kurtosis_path_nii)
 
 
 
