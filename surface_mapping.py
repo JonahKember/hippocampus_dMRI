@@ -80,8 +80,9 @@ def create_partial_volume_mask(config, param_names=['DT_ADC','DT_AD','DT_RD','DT
         params_df.loc[df_train.index,'voxel_pred'] = svc.predict(X_train)
         params_df.loc[df_test.index,'voxel_pred'] = svc.predict(X_test)
 
-        params_df.loc[df_train.index,'prob_intra'] = svc.predict_proba(X_train)[:,0]
-        params_df.loc[df_test.index,'prob_intra'] = svc.predict_proba(X_test)[:,0]
+        intra_idx = list(svc.classes_).index('intra_hipp')
+        params_df.loc[df_train.index,'prob_intra'] = svc.predict_proba(X_train)[:,intra_idx]
+        params_df.loc[df_test.index,'prob_intra'] = svc.predict_proba(X_test)[:,intra_idx]
 
         params_df.to_csv(f'output/partial_volume_data__hemi-{hemi}.csv', index=False)
 

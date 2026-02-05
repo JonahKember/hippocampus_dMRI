@@ -1,6 +1,8 @@
 .venv
 data
 output
+output_model
+output
 __pycache__
 main.ipynb
 testing.ipynb
