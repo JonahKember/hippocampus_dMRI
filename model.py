@@ -12,7 +12,6 @@ from dipy.reconst import dki, dki_micro
 def fit_model(config):
 
     subject = config['subject']
-
     for hemi in ['L','R']:
         _get_voxel_directional_diffusion(subject, hemi)
         _get_vertex_sphere_angles(subject, hemi)
@@ -119,7 +118,7 @@ def _get_vertex_sphere_angles(subject, hemi, sphere_name='symmetric362', surf_ty
 
 
 
-def _get_vertex_directional_diffusion(subject, hemi, sigma_mm=2, radius_mm=6, sphere_name='symmetric362', surf_type='inner'):
+def _get_vertex_directional_diffusion(subject, hemi, sigma_mm=1, radius_mm=6, sphere_name='symmetric362', surf_type='midthickness', pvol_weight=True, distance_weight=True):
 
 
     surf_path            = f'output/sub-{subject}_hemi-{hemi}_space-B0_den-0p5mm_label-hipp_{surf_type}.surf.gii'
@@ -154,9 +153,17 @@ def _get_vertex_directional_diffusion(subject, hemi, sigma_mm=2, radius_mm=6, sp
         nearby_vox_distances = np.linalg.norm(nearby_vox_coords - mm, axis=1)
 
         # Get voxel weights based on partial-volume and gaussian-weighted distance.
-        distance_W = np.exp(-0.5 * (nearby_vox_distances / sigma_mm)**2)
-        partial_volume_W = mask_data_flat[nearby_vox]
-        W = distance_W * partial_volume_W
+        if distance_weight:
+            distance_W = np.exp(-0.5 * (nearby_vox_distances / sigma_mm)**2)
+            W = distance_W
+
+        if pvol_weight:
+            partial_volume_W = mask_data_flat[nearby_vox]
+            W = partial_volume_W
+
+        if distance_weight and pvol_weight:
+            W = distance_W * partial_volume_W
+
 
         vertex_values[f'awf'][idx] = np.average(awf[nearby_vox], weights=W)
 
