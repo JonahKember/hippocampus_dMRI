@@ -1,6 +1,7 @@
 .venv
 data
 output
+output_old
 output_model
 output
 __pycache__
