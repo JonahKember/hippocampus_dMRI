@@ -42,6 +42,7 @@ def get_paths(config, hemi):
 
         'dwi_space-B0':          f'output/dwi/sub-{subject}_hemi-{hemi}_upsampled_dwi.nii.gz',
         'mask':                  f'output/anat/sub-{subject}_hemi-{hemi}_mask.nii.gz',
+        'mask_refined':          f'output/anat/sub-{subject}_hemi-{hemi}_mask_refined.nii.gz',
         'distance':              f'output/anat/sub-{subject}_hemi-{hemi}_outer-inner-distance.nii.gz',
         'tissue_seg':            f'output/anat/sub-{subject}_hemi-{hemi}_tissue_seg.nii.gz',
         'pvol':                  f'output/anat/sub-{subject}_hemi-{hemi}_tissue_pvol.nii.gz',
