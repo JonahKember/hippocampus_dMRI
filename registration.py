@@ -14,7 +14,7 @@ def refine_mask(config):
 
         mask_transformed_nii = _high_resolution_transform(
             anat_path=paths['T1_space-B0'],
-            param_path=paths['DT_ADC'],
+            param_path=paths['DT_adc'],
             mask_path=paths['mask']
         )
         nib.save(mask_transformed_nii, paths['mask_refined'])
@@ -67,5 +67,13 @@ def _high_resolution_transform(anat_path, param_path, mask_path):
     # Apply inverse-transform to mask.
     mask_transformed = opt_map.transform_inverse(mask_data)
     mask_transformed_nii = nib.Nifti1Image(mask_transformed, anat.affine)
+
+    # Resample refined mask to original grid.
+    mask_transformed_nii = resample_img(
+        mask_transformed_nii,
+        target_affine=mask.affine,
+        target_shape=mask.shape,
+        interpolation='nearest'
+    )
 
     return mask_transformed_nii

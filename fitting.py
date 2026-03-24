@@ -88,7 +88,7 @@ def fit_neurite_volume_fraction(config):
 
         paths = io_utils.get_paths(config, hemi)
 
-        mask_path   = paths['mask']
+        mask_path   = paths['mask_refined']
         params_path = paths['DKT_params']
         nvf_path    = paths['neurite_volume_fraction']
 
@@ -119,7 +119,7 @@ def get_voxel_directional_diffusion(config):
 
         paths = io_utils.get_paths(config, hemi)
 
-        mask_path            = paths['mask']
+        mask_path            = paths['mask_refined']
         surf_path            = paths['midthickness_space-B0']
         eigenvals_path       = paths['DT_eigenvals']
         eigenvecs_path       = paths['DT_eigenvecs']
@@ -231,7 +231,7 @@ def fit_sphere_diffusion(config, sphere_name='symmetric362'):
 
         paths = io_utils.get_paths(config, hemi)
 
-        mask_path        = paths['mask']
+        mask_path        = paths['mask_refined']
         eigenvals_path   = paths['DT_eigenvals']
         eigenvecs_path   = paths['DT_eigenvecs']
         diff_sphere_path = paths['diffusion_sphere']
