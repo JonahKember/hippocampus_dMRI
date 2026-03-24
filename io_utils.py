@@ -1,8 +1,5 @@
 import os
 import json
-from pathlib import Path
-from dataclasses import dataclass
-
 
 os.makedirs(f'output', exist_ok=True)
 os.makedirs(f'output/surf', exist_ok=True)
@@ -47,10 +44,10 @@ def get_paths(config, hemi):
         'tissue_seg':            f'output/anat/sub-{subject}_hemi-{hemi}_tissue_seg.nii.gz',
         'pvol':                  f'output/anat/sub-{subject}_hemi-{hemi}_tissue_pvol.nii.gz',
 
-
         'diffusion_tensor':          f'output/params/sub-{subject}_hemi-{hemi}_DT_tensor.nii.gz',
         'diffusion_kurtosis_tensor': f'output/params/sub-{subject}_hemi-{hemi}_DKT_tensor.nii.gz',
 
+        'mean_B0':         f'output/params/sub-{subject}_hemi-{hemi}_mean_B0.nii.gz',
         'DT_adc':         f'output/params/sub-{subject}_hemi-{hemi}_DT_ADC.nii.gz',
         'DT_fa':          f'output/params/sub-{subject}_hemi-{hemi}_DT_FA.nii.gz',
         'DT_ad':          f'output/params/sub-{subject}_hemi-{hemi}_DT_AD.nii.gz',

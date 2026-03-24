@@ -8,23 +8,23 @@ from dipy.align.transforms import RigidTransform3D
 
 
 def refine_mask(config):
+    '''Perform a more focused transformation of anatomical hippocampal mask to diffusion-weighted data.'''
 
     for hemi in ['L','R']:
         paths = io_utils.get_paths(config, hemi)
 
+        _create_mean_B0(paths['dwi'], paths['bvals'], paths['mean_B0'])
         mask_transformed_nii = _high_resolution_transform(
             anat_path=paths['T1_space-B0'],
-            param_path=paths['DT_adc'],
+            param_path=paths['mean_B0'],
             mask_path=paths['mask']
         )
         nib.save(mask_transformed_nii, paths['mask_refined'])
 
-    return 
-
+    return
 
 
 def _high_resolution_transform(anat_path, param_path, mask_path):
-
 
     anat  = nib.load(anat_path)
     param = nib.load(param_path)
@@ -77,3 +77,16 @@ def _high_resolution_transform(anat_path, param_path, mask_path):
     )
 
     return mask_transformed_nii
+
+
+def _create_mean_B0(dwi_path, bvals_path, mean_b0_path, B0_threshold=25):
+
+    dwi_nii = nib.load(dwi_path)
+    bvals   = np.loadtxt(bvals_path)
+    
+    B0_idx = np.argwhere(np.abs(bvals) < B0_threshold).flatten()
+
+    dwi_data = dwi_nii.get_fdata()
+    mean_B0_data = dwi_data[:,:,:,B0_idx].mean(axis=-1)
+    mean_B0_nii  = nib.Nifti1Image(mean_B0_data, affine=dwi_nii.affine)
+    nib.save(mean_B0_nii, mean_b0_path)

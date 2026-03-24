@@ -100,10 +100,10 @@ def create_distance_volume(config):
         outer = paths['outer_space-B0']
         vertex_mm = surface_utils.get_vertex_coords(outer)
 
-        mask_nii      = nib.load(paths['mask'])
-        mask_data     = volume_utils.get_mask_data(paths['mask'])
-        voxel_indices = volume_utils.get_mask_voxel_indices(paths['mask'])
-        voxel_coords  = volume_utils.get_mask_voxel_coords(paths['mask'])
+        mask_nii      = nib.load(paths['mask_refined'])
+        mask_data     = volume_utils.get_mask_data(paths['mask_refined'])
+        voxel_indices = volume_utils.get_mask_voxel_indices(paths['mask_refined'])
+        voxel_coords  = volume_utils.get_mask_voxel_coords(paths['mask_refined'])
 
         vertex_tree  = cKDTree(vertex_mm)
         distances, _ = vertex_tree.query(voxel_coords)
@@ -132,7 +132,7 @@ def create_tissue_segmentation(config):
         img_path    = paths['T1_space-B0']
         tissue_path = paths['tissue_seg']
         pvol_path   = paths['pvol']
-        ref_path    = paths['mask']
+        ref_path    = paths['mask_refined']
 
 
         ref_nii  = nib.load(ref_path)
