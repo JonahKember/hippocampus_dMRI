@@ -97,27 +97,33 @@ def create_distance_volume(config):
 
         paths = io_utils.get_paths(config, hemi)
 
-        outer = paths['outer_space-B0']
-        vertex_mm = surface_utils.get_vertex_coords(outer)
+        mask_nii = nib.load(paths['mask_refined'])
+        mask_data = mask_nii.get_fdata()
 
-        mask_nii      = nib.load(paths['mask_refined'])
-        mask_data     = volume_utils.get_mask_data(paths['mask_refined'])
-        voxel_indices = volume_utils.get_mask_voxel_indices(paths['mask_refined'])
-        voxel_coords  = volume_utils.get_mask_voxel_coords(paths['mask_refined'])
+        # Create tree of voxels outside the mask.
+        mask_data_full = mask_data.copy()
+        mask_data_full[mask_data == 0] = 1
+        mask_data_full[mask_data != 0] = 0
 
-        vertex_tree  = cKDTree(vertex_mm)
-        distances, _ = vertex_tree.query(voxel_coords)
+        voxel_indices = np.column_stack(np.where(mask_data_full))
+        voxel_coords = nib.affines.apply_affine(mask_nii.affine, voxel_indices)
+        voxel_tree  = cKDTree(voxel_coords)
 
+        # Query the nearest distance of voxels within mask to voxels outside mask.
+        mask_indices  = np.column_stack(np.where(mask_data))
+        mask_coords  = nib.affines.apply_affine(mask_nii.affine, mask_indices)
+        distances, _ = voxel_tree.query(mask_coords)
+
+        # Write to volume.
         distance_vol = np.zeros_like(mask_data)
-        for dist, vox_idx in zip(distances, voxel_indices):
+        for dist, vox_idx in zip(distances, mask_indices):
             x, y, z = vox_idx
             distance_vol[x,y,z] = dist
 
         distance_vol[distance_vol == 0] = np.nan
-
-        distance_path = paths['distance']
+        distance_vol = distance_vol - np.nanmin(distance_vol)
         distance_nii = nib.Nifti2Image(distance_vol, mask_nii.affine, mask_nii.header)
-        nib.save(distance_nii, distance_path)
+        nib.save(distance_nii, paths['distance'])
 
     return
 

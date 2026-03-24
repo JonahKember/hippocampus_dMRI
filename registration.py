@@ -13,7 +13,7 @@ def refine_mask(config):
     for hemi in ['L','R']:
         paths = io_utils.get_paths(config, hemi)
 
-        _create_mean_B0(paths['dwi'], paths['bvals'], paths['mean_B0'])
+        _create_mean_B0(paths['dwi_space-B0'], paths['bvals'], paths['mean_B0'])
         mask_transformed_nii = _high_resolution_transform(
             anat_path=paths['T1_space-B0'],
             param_path=paths['mean_B0'],
