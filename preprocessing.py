@@ -147,7 +147,7 @@ def create_tissue_segmentation(config):
 
         # Segment T1 (gray/white/CSF).
         tissue_classifier = TissueClassifierHMRF()
-        _, final_seg, partial_vol = tissue_classifier.classify(img_data, nclasses=3, beta=.1)
+        _, final_seg, partial_vol = tissue_classifier.classify(img_data, nclasses=2, beta=.1)
 
         # Resample to 0.5mm resolution, write tissue segmentation to NIFTI.
         tissue_nii = nib.Nifti2Image(
