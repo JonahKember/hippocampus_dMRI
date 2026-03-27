@@ -44,9 +44,9 @@ def fit_noddi(config, lambda_par=1.1e-9, lambda_iso=3.0e-9):
         bundle.set_tortuous_parameter('G2Zeppelin_1_lambda_perp','C1Stick_1_lambda_par','partial_volume_0')
         bundle.set_equal_parameter('G2Zeppelin_1_lambda_par', 'C1Stick_1_lambda_par')
         bundle.set_fixed_parameter('G2Zeppelin_1_lambda_par', lambda_par)
-        bundle.set_fixed_parameter('G1Ball_1_lambda_iso', lambda_iso)
 
         noddi = MultiCompartmentModel(models=[ball, bundle])
+        noddi.set_fixed_parameter('G1Ball_1_lambda_iso', lambda_iso)
 
         # Fit model.
         noddi_fit = noddi.fit(scheme, data)
