@@ -67,6 +67,10 @@ def get_paths(config, hemi):
         'neurite_volume_fraction': f'output/params/sub-{subject}_hemi-{hemi}_neurite_volume_fraction.nii.gz',
         'diffusion_sphere':        f'output/params/sub-{subject}_hemi-{hemi}_diffusion_sphere.nii.gz',
         'kurtosis_sphere':         f'output/params/sub-{subject}_hemi-{hemi}_kurtosis_sphere.nii.gz',
+
+        'noddi_NDI':               f'sub-{subject}_hemi-{hemi}_noddi_NDI.nii.gz',
+        'noddi_ODI':               f'sub-{subject}_hemi-{hemi}_noddi_ODI.nii.gz',
+        'noddi_mu':               f'sub-{subject}_hemi-{hemi}_noddi_mu.nii.gz',
     }
 
     return paths
