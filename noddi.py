@@ -1,4 +1,4 @@
-import io_utils
+from hippocampus_dMRI import io_utils
 import numpy as np
 import nibabel as nib
 

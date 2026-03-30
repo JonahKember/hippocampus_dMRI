@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import nibabel as nib
-import io_utils, volume_utils, surface_utils
+from hippocampus_dMRI import io_utils, volume_utils, surface_utils
 
 from scipy.spatial import cKDTree
 from dipy.data import get_sphere

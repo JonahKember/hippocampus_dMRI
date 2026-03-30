@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import nibabel as nib
-import io_utils, surface_utils, volume_utils
+from hippocampus_dMRI import io_utils, surface_utils, volume_utils
 
 from nilearn import image
 from scipy.spatial import cKDTree
@@ -48,7 +48,7 @@ def transform_volumes(config):
             volume_T1 = paths[volume_path]
             volume_B0 = paths[f'{volume_path}_space-B0']
 
-            os.system(f'mrtransform {volume_T1} {volume_B0} -linear {B0_to_T1} -force')
+            os.system(f'mrtransform {volume_T1} {volume_B0} -linear {B0_to_T1} -inverse -force')
 
     return
 
