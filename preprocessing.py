@@ -1,56 +1,13 @@
 import os
 import numpy as np
 import nibabel as nib
-from hippocampus_dMRI import io_utils, surface_utils, volume_utils
+from hippocampus_dMRI_T1_space import io_utils
 
 from nilearn import image
 from scipy.spatial import cKDTree
+from scipy.ndimage import distance_transform_edt, binary_dilation
 from nibabel.affines import apply_affine
 from dipy.segment.tissue import TissueClassifierHMRF
-
-
-
-def transform_surfaces(config):
-
-    for hemi in ['L','R']:
-
-        paths = io_utils.get_paths(config, hemi)
-
-        for surface_path in ['midthickness','inner','outer']:
-
-            B0_to_T1 = paths['B0_to_T1']
-            surf_T1  = paths[f'{surface_path}']
-            surf_B0  = paths[f'{surface_path}_space-B0']
-
-            vertex_faces  = surface_utils.get_vertex_faces(surf_T1)
-            vertex_coords = surface_utils.get_vertex_coords(surf_T1)
-
-            B0_to_T1_array = np.loadtxt(B0_to_T1)
-            T1_to_B0       = np.linalg.inv(B0_to_T1_array)
-            vertex_coords_B0 = apply_affine(T1_to_B0, vertex_coords)
-            vertex_coords_B0 = vertex_coords_B0.astype(np.float32)
-
-            gii = surface_utils.create_surface_gii(vertex_faces, vertex_coords_B0, hemi)
-            nib.save(gii, surf_B0)
-
-    return
-
-
-def transform_volumes(config):
-
-    for hemi in ['L','R']:
-
-        paths = io_utils.get_paths(config, hemi)
-        B0_to_T1 = paths['B0_to_T1']
-
-        for volume_path in ['T1','subfields']:
-
-            volume_T1 = paths[volume_path]
-            volume_B0 = paths[f'{volume_path}_space-B0']
-
-            os.system(f'mrtransform {volume_T1} {volume_B0} -linear {B0_to_T1} -inverse -force')
-
-    return
 
 
 def upsample_DWI(config):
@@ -61,8 +18,8 @@ def upsample_DWI(config):
         paths = io_utils.get_paths(config, hemi)
 
         input    = paths['dwi']
-        output   = paths['dwi_space-B0']
-        template = paths['T1_space-B0']
+        output   = paths['dwi_upsampled']
+        template = paths['T1']
 
         os.system(f'mrgrid {input} regrid -voxel 0.5 -template {template} {output} -force')
 
@@ -75,8 +32,8 @@ def create_mask(config):
 
         paths = io_utils.get_paths(config, hemi)
 
-        subfields = paths['subfields_space-B0']
-        dwi       = paths['dwi_space-B0']
+        subfields = paths['subfields']
+        dwi       = paths['dwi_upsampled']
         mask      = paths['mask']
 
         os.system(f'mrgrid {subfields} regrid -template {dwi} -interp nearest {mask} -force')
@@ -85,10 +42,45 @@ def create_mask(config):
         mask_data = mask_nii.get_fdata()
         mask_data[mask_data > 0] = 1
 
-        mask_nii = nib.Nifti2Image(mask_data, mask_nii.affine, mask_nii.header)
+        # Dilate mask to account for under-segmentation by HippUnfold in the anterior/superior direction.
+        structure = np.zeros((3,3,3))
+        structure[:, 1:, 1:] = 1
+        dilated = binary_dilation(mask_data, structure=structure)
+
+        mask_nii = nib.Nifti1Image(dilated.astype(np.uint8), mask_nii.affine, mask_nii.header)
         nib.save(mask_nii, mask)
 
+
     return
+
+
+def create_layer_mask(config, hippunfold_srlm_idx=7):
+
+    for hemi in ['L','R']:
+
+        paths = io_utils.get_paths(config, hemi)
+
+        layers    = paths['layers']
+        subfields = paths['subfields']
+
+        # Load subfields mask
+        subfields_nii = nib.load(subfields)
+        affine = subfields_nii.affine
+        data   = subfields_nii.get_fdata()
+
+        # Create binary masks.
+        mask = np.full(data.shape, np.nan, dtype=np.float32)
+        hipp_mask = data > 0
+        srlm_mask = data == hippunfold_srlm_idx
+
+        dist_to_srlm = distance_transform_edt(~srlm_mask, sampling=np.abs(affine[:3, :3].diagonal()))
+        dist_to_outside = distance_transform_edt(hipp_mask, sampling=np.abs(affine[:3, :3].diagonal()))
+
+        mask[hipp_mask & (~srlm_mask) & (dist_to_outside < dist_to_srlm)] = 1
+        mask[srlm_mask] = 2
+
+        nib.save(nib.Nifti1Image(mask, affine), layers)
+
 
 
 def create_distance_volume(config):
@@ -97,7 +89,7 @@ def create_distance_volume(config):
 
         paths = io_utils.get_paths(config, hemi)
 
-        mask_nii = nib.load(paths['mask_refined'])
+        mask_nii = nib.load(paths['mask'])
         mask_data = mask_nii.get_fdata()
 
         # Create tree of voxels outside the mask.
@@ -122,11 +114,10 @@ def create_distance_volume(config):
 
         distance_vol[distance_vol == 0] = np.nan
         distance_vol = distance_vol - np.nanmin(distance_vol)
-        distance_nii = nib.Nifti2Image(distance_vol, mask_nii.affine, mask_nii.header)
+        distance_nii = nib.Nifti1Image(distance_vol, mask_nii.affine, mask_nii.header)
         nib.save(distance_nii, paths['distance'])
 
     return
-
 
 
 def create_tissue_segmentation(config):
@@ -135,7 +126,7 @@ def create_tissue_segmentation(config):
 
         paths = io_utils.get_paths(config, hemi)
 
-        img_path    = paths['T1_space-B0']
+        img_path    = paths['T1_refined']
         tissue_path = paths['tissue_seg']
         pvol_path   = paths['pvol']
         ref_path    = paths['mask_refined']
@@ -150,7 +141,7 @@ def create_tissue_segmentation(config):
         _, final_seg, partial_vol = tissue_classifier.classify(img_data, nclasses=2, beta=.1)
 
         # Resample to 0.5mm resolution, write tissue segmentation to NIFTI.
-        tissue_nii = nib.Nifti2Image(
+        tissue_nii = nib.Nifti1Image(
             final_seg,
             affine=img_nii.affine,
             header=img_nii.header
@@ -159,7 +150,7 @@ def create_tissue_segmentation(config):
         nii_resampled  = image.resample_to_img(tissue_nii, ref_path)
         data_resampled = np.int32(nii_resampled.get_fdata())
 
-        nii = nib.Nifti2Image(
+        nii = nib.Nifti1Image(
             data_resampled,
             affine=ref_nii.affine,
             header=ref_nii.header
@@ -167,11 +158,10 @@ def create_tissue_segmentation(config):
         nib.save(nii, tissue_path)
 
         # Resample to 0.5mm resolution, write partial volume to NIFTI.
-        pvol_nii = nib.Nifti2Image(
+        pvol_nii = nib.Nifti1Image(
             partial_vol,
             affine=img_nii.affine,
             header=img_nii.header
         )
         pvol_nii_resampled = image.resample_to_img(pvol_nii, ref_path)
         nib.save(pvol_nii_resampled, pvol_path)
-

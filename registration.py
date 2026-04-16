@@ -1,10 +1,11 @@
+import os
+import subprocess
 import numpy as np
 import nibabel as nib
 
-from hippocampus_dMRI import io_utils
+from hippocampus_dMRI_T1_space import io_utils
+from pathlib import Path
 from nilearn.image import resample_img
-from dipy.align.imaffine import AffineRegistration, MutualInformationMetric
-from dipy.align.transforms import RigidTransform3D
 from dipy.denoise.nlmeans import nlmeans
 from dipy.denoise.adaptive_soft_matching import adaptive_soft_matching
 from dipy.denoise.noise_estimate import estimate_sigma
@@ -16,73 +17,86 @@ def refine_mask(config):
     for hemi in ['L','R']:
         paths = io_utils.get_paths(config, hemi)
 
-        _create_mean_B0(paths['dwi_space-B0'], paths['bvals'], paths['mean_B0'])
+        _create_mean_B0(paths['dwi_upsampled'], paths['bvals'], paths['mean_B0'])
         _adapative_smoothing(paths['mean_B0'], paths['mean_B0_smooth'])
+        _create_rigid_transform(paths['subject'], hemi, paths['T1'], paths['mean_B0_smooth'])
 
-        mask_transformed_nii = _high_resolution_transform(
-            anat_path=paths['T1_space-B0'],
-            param_path=paths['mean_B0_smooth'],
-            mask_path=paths['mask']
-        )
-        nib.save(mask_transformed_nii, paths['mask_refined'])
+        for prefix in ['T1','layers','mask','distance']:
+            _apply_rigid_transform(
+                paths['subject'],
+                hemi,
+                input=paths[prefix],
+                output=paths[f'{prefix}_refined'],
+                reference=paths['mean_B0_smooth'],
+                type='vol'
+            )
 
+        for prefix in ['midthickness','inner','outer']:
+            _apply_rigid_transform(
+                paths['subject'],
+                hemi,
+                input=paths[prefix],
+                output=paths[f'{prefix}_refined'],
+                reference=paths['mean_B0_smooth'],
+                type='surf'
+            )
 
     return
 
 
-def _high_resolution_transform(anat_path, param_path, mask_path):
+def _create_rigid_transform(subject, hemi, anat_path, param_path, ants_dir='/opt/minc/1.9.18/bin'):
 
-    anat  = nib.load(anat_path)
-    param = nib.load(param_path)
-    mask  = nib.load(mask_path)
+    anat_path = Path(anat_path)
 
-    anat_data = anat.get_fdata().astype(np.float32)
+    # Add ANTS to environment. 
+    env = os.environ.copy()
+    env['ANTSPATH'] = ants_dir
+    env['PATH'] = f"{ants_dir}:{env.get('PATH','')}"
 
-    # Regrid parameter volume and mask to anatomical space.
-    resampled_imgs = {}
-    for img, interp, name in [(param,'linear','param'), (mask,'nearest','mask')]:
+    cmd_reg = [
+        'antsRegistrationSyNQuick.sh',
+        '-d', '3',
+        '-m', str(param_path),
+        '-f', str(anat_path),
+        '-t', 'r',
+        '-o', f'{anat_path.parent}/sub-{subject}_hemi-{hemi}_refined_transform_',
+        '-n', '5'
+    ]
+    subprocess.run(cmd_reg, check=True, env=env)
 
-        resampled_imgs[name] = resample_img(
-            img,
-            target_affine=anat.affine,
-            target_shape=anat_data.shape,
-            interpolation=interp
-        )
+    return
 
-    param_data = resampled_imgs['param'].get_fdata().astype(np.float32)
-    mask_data  = (resampled_imgs['mask'].get_fdata() > 0).astype(np.uint8)
 
-    # Create rigid transform from parameter space to anat.
-    metric = MutualInformationMetric()
-    affreg = AffineRegistration(
-        metric=metric,
-        level_iters=[500, 200, 100],
-        sigmas=[1.0,0.5,0.0],
-        factors=[2,1,1]
-    )
+def _apply_rigid_transform(subject, hemi, input, output, reference, type, ants_dir='/opt/minc/1.9.18/bin'):
 
-    opt_map = affreg.optimize(
-        static=anat_data,
-        moving=param_data,
-        transform=RigidTransform3D(),
-        params0=None,
-        static_grid2world=anat.affine,
-        moving_grid2world=anat.affine
-    )
+    # ANTs environment
+    env = os.environ.copy()
+    env['ANTSPATH'] = ants_dir
+    env['PATH'] = f"{ants_dir}:{env.get('PATH','')}"
 
-    # Apply inverse-transform to mask.
-    mask_transformed = opt_map.transform_inverse(mask_data)
-    mask_transformed_nii = nib.Nifti1Image(mask_transformed, anat.affine)
+    # Get transform files.
+    input_path = Path(input)
+    affine  = f'{input_path.parent}/sub-{subject}_hemi-{hemi}_refined_transform_0GenericAffine.mat'
 
-    # Resample refined mask to original grid.
-    mask_transformed_nii = resample_img(
-        mask_transformed_nii,
-        target_affine=mask.affine,
-        target_shape=mask.shape,
-        interpolation='nearest'
-    )
+    cmd = [
+        'antsApplyTransforms',
+        '-d', '3',
+        '-i', str(input),
+        '-r', str(reference),
+        '-o', str(output),
+        '-t', f'[{affine},1]'
+    ]
 
-    return mask_transformed_nii
+    if type == 'vol':
+        subprocess.run(cmd, check=True, env=env)
+
+    if type == 'surf':
+        affine = affine.replace('/surf/','/anat/')
+        affine_txt = affine.replace('/anat/','/surf/').replace('transform_0GenericAffine.mat','surface_transform.txt')
+        os.system(f'ConvertTransformFile 3 {affine} {affine_txt} --homogeneousMatrix')
+        os.system(f'wb_command -surface-apply-affine {input} {affine_txt} {output}')
+
+    return
 
 
 

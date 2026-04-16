@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import nibabel as nib
-from hippocampus_dMRI import io_utils, volume_utils, surface_utils
+from hippocampus_dMRI_T1_space import io_utils, volume_utils, surface_utils
 
 from scipy.spatial import cKDTree
 from dipy.data import get_sphere
@@ -15,12 +15,12 @@ def fit_diffusion_tensors(config):
         paths = io_utils.get_paths(config, hemi)
 
         # Fit diffusion-tensor and diffusion-kurtosis-tensor on cropped/upsampled DWI image.
-        dwi   = paths['dwi_space-B0']
+        dwi   = paths['dwi_upsampled']
         bvals = paths['bvals']
         bvecs = paths['bvecs']
 
-        dt    = paths['diffusion_tensor']
-        dkt   = paths['diffusion_kurtosis_tensor']
+        dt    = paths['DT_tensor']
+        dkt   = paths['DKT_tensor']
 
         os.system(f'dwi2tensor {dwi} {dt} -dkt {dkt} -fslgrad {bvecs} {bvals} -force')
 
@@ -32,14 +32,14 @@ def fit_diffusion_tensors(config):
             -rd    {paths['DT_rd']} \
             -value {paths['DT_eigenvals']} \
             -vector {paths['DT_eigenvecs']} -num 1,2,3 -modulate none \
-            {paths['diffusion_tensor']} \
+            {paths['DT_tensor']} \
             -force"
         )
 
         # Merge all DKT params expected by DIPY.
         dt_vals    = nib.load(paths['DT_eigenvals']).get_fdata()
         dt_vecs    = nib.load(paths['DT_eigenvecs']).get_fdata()
-        dkt_params = nib.load(paths['diffusion_kurtosis_tensor']).get_fdata()
+        dkt_params = nib.load(paths['DKT_tensor']).get_fdata()
         params     = np.concatenate([dt_vals, dt_vecs, dkt_params], axis=-1)
 
         # Write DKT parameters to 4D NIFTI.
@@ -120,7 +120,7 @@ def get_voxel_directional_diffusion(config):
         paths = io_utils.get_paths(config, hemi)
 
         mask_path            = paths['mask_refined']
-        surf_path            = paths['midthickness_space-B0']
+        surf_path            = paths['inner_refined']
         eigenvals_path       = paths['DT_eigenvals']
         eigenvecs_path       = paths['DT_eigenvecs']
 

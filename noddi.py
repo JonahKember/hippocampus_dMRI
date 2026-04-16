@@ -1,4 +1,4 @@
-from hippocampus_dMRI import io_utils
+from hippocampus_dMRI_T1_space import io_utils
 import numpy as np
 import nibabel as nib
 
@@ -16,7 +16,7 @@ def fit_noddi(config, lambda_par=1.1e-9, lambda_iso=3.0e-9):
 
         bvals_path  = paths['bvals']
         bvecs_path  = paths['bvecs']
-        dwi_path    = paths['dwi_space-B0']
+        dwi_path    = paths['dwi_upsampled']
 
         ndi_output = paths['noddi_NDI']
         odi_output = paths['noddi_ODI']
